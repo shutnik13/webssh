@@ -900,6 +900,7 @@ def create_app(
                 app.config['SECRET_KEY'],
             ),
             confirm_session_close=settings.get('confirm_session_close', False),
+            confirm_remote_clipboard=settings.get('confirm_remote_clipboard', True),
             disconnect_session_action=settings.get(
                 'disconnect_session_action',
                 'retry',
@@ -1225,6 +1226,7 @@ def create_app(
                 'confirm_session_close',
                 False,
             ),
+            confirm_remote_clipboard=settings.get('confirm_remote_clipboard', True),
             disconnect_session_action=settings.get(
                 'disconnect_session_action',
                 'retry',
@@ -1247,6 +1249,8 @@ def create_app(
             'terminal_appearance',
             'sync_terminal_directory',
             'confirm_session_close',
+            'confirm_remote_clipboard',
+            'accept_remote_clipboard_risk',
             'disconnect_session_action',
             'authentication_session_duration_minutes',
         }
@@ -1282,6 +1286,18 @@ def create_app(
             updates['confirm_session_close'] = data[
                 'confirm_session_close'
             ]
+        if 'accept_remote_clipboard_risk' in data and (
+            data['accept_remote_clipboard_risk'] is not True
+            or data.get('confirm_remote_clipboard') is not False
+        ):
+            return jsonify({'error': 'Invalid clipboard risk acknowledgement'}), 400
+        if 'confirm_remote_clipboard' in data:
+            if not isinstance(data['confirm_remote_clipboard'], bool):
+                return jsonify({'error': 'Invalid remote clipboard confirmation setting'}), 400
+            if (data['confirm_remote_clipboard'] is False
+                    and data.get('accept_remote_clipboard_risk') is not True):
+                return jsonify({'error': 'Accept the remote clipboard risk before disabling confirmations'}), 400
+            updates['confirm_remote_clipboard'] = data['confirm_remote_clipboard']
         if 'disconnect_session_action' in data:
             action = data['disconnect_session_action']
             if (

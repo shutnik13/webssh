@@ -14,6 +14,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 
 function fixture() {
     document.activeElement = focus;
+    document.body = {dataset: {confirmRemoteClipboard: 'false'}};
     navigator.userActivation.isActive = true;
     const writes = [], prompts = [];
     let handler;
@@ -85,3 +86,44 @@ test('a rejected write cannot create a new prompt after terminal disposal', asyn
     await flush();
     assert.equal(f.prompts.length, 0);
 });
+
+
+test('strict user preference restores explicit approval even after a mouse selection', async () => {
+    const f = fixture();
+    document.body.dataset.confirmRemoteClipboard = 'true';
+    manager.remoteClipboardGestures.set(f.terminal, Date.now() + 5000);
+    f.receive('selected text');
+    await flush();
+    assert.deepEqual(f.writes, []);
+    assert.equal(f.prompts.length, 1);
+    f.prompts[0].action.onClick();
+    await flush();
+    assert.deepEqual(f.writes, ['selected text']);
+    f.disposable.dispose();
+});
+
+test('turning strict confirmation off restores gesture-based copying', async () => {
+    const f = fixture();
+    document.body.dataset.confirmRemoteClipboard = 'true';
+    manager.remoteClipboardGestures.set(f.terminal, Date.now() + 5000);
+    f.receive('strict');
+    assert.deepEqual(f.writes, []);
+    document.body.dataset.confirmRemoteClipboard = 'false';
+    manager.remoteClipboardGestures.set(f.terminal, Date.now() + 5000);
+    f.receive('immediate');
+    await flush();
+    assert.deepEqual(f.writes, ['immediate']);
+    f.disposable.dispose();
+});
+
+for (const value of [undefined, 'unexpected']) {
+    test(`missing or invalid preference (${value}) keeps confirmation enabled`, () => {
+        const f = fixture();
+        document.body.dataset.confirmRemoteClipboard = value;
+        manager.remoteClipboardGestures.set(f.terminal, Date.now() + 5000);
+        f.receive('requires approval');
+        assert.deepEqual(f.writes, []);
+        assert.equal(f.prompts.length, 1);
+        f.disposable.dispose();
+    });
+}

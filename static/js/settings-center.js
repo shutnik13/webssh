@@ -250,6 +250,40 @@
         });
     }
 
+    function initRemoteClipboardConfirmation() {
+        const input = document.getElementById('confirmRemoteClipboardInput');
+        if (!input) { return; }
+        input.checked = document.body.dataset.confirmRemoteClipboard !== 'false';
+        input.addEventListener('change', async () => {
+            const previous = document.body.dataset.confirmRemoteClipboard !== 'false';
+            const requested = input.checked;
+            const payload = {confirm_remote_clipboard: requested};
+            if (!requested) {
+                const accepted = window.confirm(t(
+                    'settings.remoteClipboardRisk',
+                    'Without confirmation, a remote server can replace your clipboard after a mouse selection with text different from what you selected, including malicious commands. I understand and accept this risk. Disable confirmations for mouse selections?'
+                ));
+                if (!accepted) {
+                    input.checked = previous;
+                    return;
+                }
+                payload.accept_remote_clipboard_risk = true;
+            }
+            input.disabled = true;
+            setPreferenceStatus(t('settings.saving', 'Saving setting…'));
+            try {
+                await savePreference(payload);
+                document.body.dataset.confirmRemoteClipboard = String(requested);
+                setPreferenceStatus(t('settings.saved', 'Setting saved.'));
+            } catch (error) {
+                input.checked = previous;
+                setPreferenceStatus(error.message, true);
+            } finally {
+                input.disabled = false;
+            }
+        });
+    }
+
     function initDisconnectAction() {
         const select = document.getElementById('disconnectSessionActionSelect');
         if (!select) { return; }
@@ -326,6 +360,7 @@
             'confirmSessionClose',
             'confirm_session_close',
         );
+        initRemoteClipboardConfirmation();
         initAuthenticationSessionDuration();
         initDisconnectAction();
     });

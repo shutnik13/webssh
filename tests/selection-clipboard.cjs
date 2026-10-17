@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '..');
         try {
             const page = await browser.newPage();
             await page.route('https://webssh.test/**', route => route.fulfill({contentType:'text/html', body:
-                '<style>body{margin:24px}#term{width:800px;height:300px}</style><div id="term"></div><input id="probe">'}));
+                '<body data-confirm-remote-clipboard="false"><style>body{margin:24px}#term{width:800px;height:300px}</style><div id="term"></div><input id="probe">'}));
             await page.goto('https://webssh.test/');
             await page.addStyleTag({path:path.join(root, 'static/vendor/xterm/xterm.css')});
             await page.addScriptTag({path:path.join(root, 'static/vendor/xterm/xterm.js')});

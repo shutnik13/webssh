@@ -293,6 +293,7 @@ const TerminalManager = {
     consumeRemoteClipboardGesture(terminal) {
         const expires = this.remoteClipboardGestures.get(terminal);
         this.remoteClipboardGestures.delete(terminal);
+        if (document.body?.dataset.confirmRemoteClipboard !== 'false') return false;
         return Boolean(expires && Date.now() <= expires
             && terminal.element?.contains(document.activeElement)
             && navigator.userActivation?.isActive !== false);

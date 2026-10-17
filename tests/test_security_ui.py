@@ -197,6 +197,7 @@ def test_account_preferences_api_validates_and_persists_supported_values(
         "theme": "obsidian",
         "sync_terminal_directory": False,
         "confirm_session_close": True,
+        "confirm_remote_clipboard": True,
         "disconnect_session_action": "close",
         "authentication_session_duration_minutes": 480,
     })
@@ -213,6 +214,7 @@ def test_account_preferences_api_validates_and_persists_supported_values(
         "notepad": "",
         "sync_terminal_directory": False,
         "confirm_session_close": True,
+        "confirm_remote_clipboard": True,
         "disconnect_session_action": "close",
         "authentication_session_duration_minutes": 480,
     }
@@ -221,6 +223,9 @@ def test_account_preferences_api_validates_and_persists_supported_values(
     assert invalid.status_code == 400
     assert b'data-theme="obsidian"' in rendered.data
     assert b'data-confirm-session-close="true"' in rendered.data
+    assert b'data-confirm-remote-clipboard="true"' in rendered.data
+    assert b'data-confirm-remote-clipboard="true"' in client.get('/').data
+    assert b'id="confirmRemoteClipboardInput"' in rendered.data
     assert b'data-disconnect-session-action="close"' in rendered.data
     assert b'data-authentication-session-duration-minutes="480"' in rendered.data
     assert b'id="authenticationSessionDurationSelect"' in rendered.data
@@ -428,3 +433,61 @@ def test_security_copy_keeps_mfa_optional(app, client):
 
     assert "required for all" not in html
     assert "mandatory for all" not in html
+
+
+@pytest.mark.parametrize('value', [None, 0, 1, 'false', [], {}])
+def test_remote_clipboard_preference_rejects_non_booleans(app, client, value):
+    _create_user(app, 'clipboard_preferences_user')
+    _login(client, 'clipboard_preferences_user')
+    response = client.post('/api/account/preferences', json={
+        'confirm_remote_clipboard': value,
+    })
+    assert response.status_code == 400
+    assert b'data-confirm-remote-clipboard="true"' in client.get('/').data
+
+
+@pytest.mark.parametrize('ack', [None, False, 1, 'true', [], {}])
+def test_disabling_remote_clipboard_confirmation_requires_explicit_acceptance(app, client, ack):
+    _create_user(app, 'clipboard_risk_user')
+    _login(client, 'clipboard_risk_user')
+    data = {'confirm_remote_clipboard': False}
+    if ack is not None:
+        data['accept_remote_clipboard_risk'] = ack
+    assert client.post('/api/account/preferences', json=data).status_code == 400
+    assert b'data-confirm-remote-clipboard="true"' in client.get('/').data
+
+
+def test_remote_clipboard_preference_is_saved_per_account(app, client):
+    _create_user(app, 'clipboard_first')
+    _create_user(app, 'clipboard_second')
+    _login(client, 'clipboard_first')
+    assert b'data-confirm-remote-clipboard="true"' in client.get('/').data
+    saved = client.post('/api/account/preferences', json={
+        'confirm_remote_clipboard': False, 'accept_remote_clipboard_risk': True,
+    })
+    assert saved.status_code == 200
+    assert saved.get_json()['settings']['confirm_remote_clipboard'] is False
+    assert 'accept_remote_clipboard_risk' not in saved.get_json()['settings']
+    assert b'data-confirm-remote-clipboard="false"' in client.get('/settings').data
+    assert b'data-confirm-remote-clipboard="false"' in client.get('/').data
+    client.post('/logout')
+    _login(client, 'clipboard_second')
+    assert b'data-confirm-remote-clipboard="true"' in client.get('/settings').data
+    assert b'data-confirm-remote-clipboard="true"' in client.get('/').data
+    client.post('/logout')
+    _login(client, 'clipboard_first')
+    assert b'data-confirm-remote-clipboard="false"' in client.get('/').data
+    assert client.post('/api/account/preferences', json={
+        'confirm_remote_clipboard': True,
+    }).status_code == 200
+    assert b'data-confirm-remote-clipboard="true"' in client.get('/').data
+
+
+@pytest.mark.parametrize('payload', [
+    {'accept_remote_clipboard_risk': True},
+    {'confirm_remote_clipboard': True, 'accept_remote_clipboard_risk': True},
+])
+def test_clipboard_risk_acceptance_cannot_be_saved_as_a_preference(app, client, payload):
+    _create_user(app, 'clipboard_ack_user')
+    _login(client, 'clipboard_ack_user')
+    assert client.post('/api/account/preferences', json=payload).status_code == 400
