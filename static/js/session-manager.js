@@ -15,6 +15,8 @@ const SessionManager = {
     paneAssignments: [],
     connectionLauncherSessions: new Map(),
     activePaneIndex: 0,
+    draggedSessionId: null,
+    sessionDragMime: 'application/x-webssh-session',
     confirmSessionClose: document.body?.dataset.confirmSessionClose === 'true',
     disconnectSessionAction: ['retry', 'close'].includes(
         document.body?.dataset.disconnectSessionAction
@@ -276,6 +278,7 @@ const SessionManager = {
         const tab = document.createElement('div');
         tab.className = 'session-tab';
         tab.id = `tab-${sessionId}`;
+        this.setupSessionTabDrag(tab, sessionId);
 
         const statusDot = document.createElement('span');
         statusDot.className = 'status-dot connected';
@@ -355,6 +358,97 @@ const SessionManager = {
 
         document.getElementById('sessionTabs').appendChild(tab);
         this.scrollTabIntoView(sessionId);
+    },
+
+    setupSessionTabDrag(tab, sessionId) {
+        tab.draggable = true;
+        tab.title = window.i18n ? i18n.t('panes.dragToMove') : 'Drag to a pane to move or swap terminals';
+        tab.dataset.i18nTitle = 'panes.dragToMove';
+        let allowDrag = true;
+        tab.addEventListener('pointerdown', event => {
+            allowDrag = !event.target.closest?.('.tab-edit, .tab-close, .tab-reconnect, input, button');
+        });
+        tab.addEventListener('dragstart', event => {
+            if (!allowDrag || tab.querySelector('input') || !this.sessions[sessionId] || !event.dataTransfer) {
+                event.preventDefault();
+                return;
+            }
+            this.clearSessionDrag();
+            this.draggedSessionId = sessionId;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData(this.sessionDragMime, sessionId);
+            tab.classList.add('session-tab-dragging');
+        });
+        tab.addEventListener('dragend', () => this.clearSessionDrag());
+    },
+
+    clearSessionDrag() {
+        this.draggedSessionId = null;
+        document.querySelectorAll('.session-pane-drop-target, .session-tab-dragging').forEach(element => {
+            element.classList.remove('session-pane-drop-target', 'session-tab-dragging');
+        });
+    },
+
+    hasSessionDrag(event) {
+        return Boolean(this.draggedSessionId && this.sessions[this.draggedSessionId]
+            && Array.from(event.dataTransfer?.types || []).includes(this.sessionDragMime));
+    },
+
+    setupPaneDrop(pane, paneIndex) {
+        const highlight = event => {
+            if (!this.hasSessionDrag(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.dataTransfer.dropEffect = 'move';
+            pane.classList.add('session-pane-drop-target');
+        };
+        pane.addEventListener('dragenter', highlight, true);
+        pane.addEventListener('dragover', highlight, true);
+        pane.addEventListener('dragleave', event => {
+            if (!pane.contains(event.relatedTarget)) pane.classList.remove('session-pane-drop-target');
+        });
+        pane.addEventListener('drop', event => {
+            if (!this.hasSessionDrag(event)) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            const sessionId = event.dataTransfer.getData(this.sessionDragMime);
+            const valid = sessionId === this.draggedSessionId;
+            this.clearSessionDrag();
+            if (valid) this.moveSessionToPane(sessionId, paneIndex);
+        }, true);
+    },
+
+    moveSessionToPane(sessionId, paneIndex) {
+        if (!this.sessions[sessionId] || !Number.isInteger(paneIndex)
+            || paneIndex < 0 || paneIndex >= this.paneAssignments.length) return false;
+        const sourceIndex = this.paneAssignments.indexOf(sessionId);
+        if (sourceIndex === paneIndex) return false;
+        const container = document.getElementById('terminalsContainer');
+        if (!container) return false;
+        const targetId = this.paneAssignments[paneIndex];
+        const affected = [paneIndex];
+        if (sourceIndex !== -1) affected.push(sourceIndex);
+        // Park both wrappers before renderPane clears either pane. The same
+        // xterm instances, output buffers and SSH sessions are retained.
+        affected.forEach(index => {
+            const session = this.sessions[this.paneAssignments[index]];
+            const wrapper = session && document.getElementById(session.terminalId);
+            if (wrapper) {
+                wrapper.classList.add('unassigned');
+                container.appendChild(wrapper);
+            }
+            this.connectionLauncherSessions.delete(index);
+        });
+        this.paneAssignments[paneIndex] = sessionId;
+        if (sourceIndex !== -1) this.paneAssignments[sourceIndex] = targetId || null;
+        affected.forEach(index => this.renderPane(index));
+        this.setActivePane(paneIndex);
+        TerminalManager.scheduleFitAndSyncVisibleTerminals?.({
+            socket: window.socket,
+            isConnected: id => Boolean(this.sessions[id]?.connected),
+            force: true,
+        });
+        return true;
     },
 
     switchSession(sessionId) {
@@ -1004,6 +1098,10 @@ const SessionManager = {
             if (event.pointerType === 'mouse' && event.button !== 0) {
                 return;
             }
+            // Mouse dragging a live tab is reserved for moving it to a pane.
+            // Wheel scrolling, empty-strip dragging and touch scrolling remain.
+            if (event.pointerType === 'mouse'
+                && event.target?.closest?.('.session-tab[draggable="true"]')) return;
             if (dragPointerId !== null) {
                 return;
             }
@@ -1075,6 +1173,7 @@ const SessionManager = {
             const pane = document.createElement('div');
             pane.className = 'terminal-pane';
             pane.dataset.paneIndex = String(i);
+            this.setupPaneDrop(pane, i);
             pane.addEventListener('click', () => {
                 this.setActivePane(i);
             });
@@ -1845,6 +1944,7 @@ const SessionManager = {
             const pane = document.createElement('div');
             pane.className = 'terminal-pane';
             pane.dataset.paneIndex = String(i);
+            this.setupPaneDrop(pane, i);
             pane.addEventListener('click', () => {
                 this.setActivePane(i);
             });

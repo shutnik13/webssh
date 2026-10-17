@@ -165,3 +165,17 @@ body[data-theme] .terminal-grid > .terminal-pane { background-image: none; }
 .session-files-recovery button { margin-left: 8px; }
 .session-files-mount:has([inert]) { opacity: 0.65; }
 .session-insights-state.reconnecting { color: var(--text-secondary); white-space: normal; }
+
+/* Session tabs move existing terminals; file upload drops remain independent. */
+.session-tab[draggable="true"] { cursor: grab; }
+.session-tab.session-tab-dragging { opacity: 0.5; }
+.terminal-pane.session-pane-drop-target::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    z-index: 20;
+    border: 2px dashed var(--ws2-accent, var(--accent-primary));
+    background: color-mix(in srgb, var(--ws2-accent, var(--accent-primary)) 12%, transparent);
+    border-radius: 4px;
+    pointer-events: none;
+}
