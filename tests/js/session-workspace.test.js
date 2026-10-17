@@ -382,6 +382,19 @@ test('keeps SFTP open in split layouts and follows the active capable session', 
     assert.equal(coordinator.getState().sftpOpen, true);
 });
 
+test('three-pane layout follows the active SFTP session', () => {
+    const { coordinator } = createHarness();
+    coordinator.update({
+        layout: 3,
+        sessionId: 's3',
+        session: { host: 'gamma', connected: true },
+        sftpCapability: 'available',
+    });
+    coordinator.toggleSftp();
+    assert.equal(coordinator.getState().layout, 3);
+    assert.equal(coordinator.getState().sftpOpen, true);
+});
+
 test('keeps Files reachable in split layouts when active session has no SFTP', () => {
     const { coordinator, calls } = createHarness();
 
