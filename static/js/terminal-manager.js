@@ -20,6 +20,7 @@ const TerminalManager = {
     scrollbarDisposers: {},
     compositionDisposers: {},
     clipboardDisposers: {},
+    mouseClipboardDisposers: {},
     terminalWriteCallbacks: {},
     osc52ClipboardAllowed: {},
     directorySyncReplayDepths: {},
@@ -277,36 +278,32 @@ const TerminalManager = {
         }
     },
 
-    shouldProcessClipboardKeyEvent(event, terminal, isMac) {
-        if (event.type !== 'keydown' || event.altKey || event.shiftKey) {
-            return true;
-        }
-
+    clipboardShortcutKey(event) {
         const key = (event.key || '').toLowerCase();
-        if (key !== 'c' && key !== 'v') {
-            return true;
-        }
+        if (key === 'c' || key === 'v') return key;
+        if (event.code === 'KeyC') return 'c';
+        if (event.code === 'KeyV') return 'v';
+        const code = event.keyCode || event.which;
+        return code === 67 ? 'c' : code === 86 ? 'v' : key;
+    },
 
-        if (isMac) {
-            return !(event.metaKey && !event.ctrlKey);
-        }
-
-        if (!event.ctrlKey || event.metaKey) {
-            return true;
-        }
-
-        return key === 'c' ? !terminal.hasSelection() : false;
+    shouldProcessClipboardKeyEvent(event, terminal, isMac) {
+        if (event.altKey) return true;
+        const accelerator = isMac
+            ? event.metaKey && !event.ctrlKey
+            : event.ctrlKey && !event.metaKey;
+        if (!accelerator) return true;
+        const key = this.clipboardShortcutKey(event);
+        // Leave native browser paste enabled, but never send Ctrl+V to SSH,
+        // including keypress events and non-Latin keyboard layouts.
+        if (key === 'v') return false;
+        if (key === 'c') return !event.shiftKey && !terminal.hasSelection();
+        return true;
     },
 
     isCopyShortcut(event, isMac) {
-        if (
-            event.type !== 'keydown'
-            || event.altKey
-            || event.shiftKey
-            || (event.key || '').toLowerCase() !== 'c'
-        ) {
-            return false;
-        }
+        if (event.type !== 'keydown' || event.altKey
+            || this.clipboardShortcutKey(event) !== 'c') return false;
         return isMac
             ? event.metaKey && !event.ctrlKey
             : event.ctrlKey && !event.metaKey;
@@ -375,19 +372,16 @@ const TerminalManager = {
     },
 
     handleClipboardKeyEvent(event, terminal, isMac) {
-        const shouldProcess = this.shouldProcessClipboardKeyEvent(
-            event,
-            terminal,
-            isMac,
-        );
-        if (
-            !shouldProcess
-            && terminal.hasSelection()
-            && this.isCopyShortcut(event, isMac)
-        ) {
-            this.copySelectionToClipboard(terminal).catch(() => {
-                window.showNotification?.('Clipboard access denied', 'error');
-            });
+        const shouldProcess = this.shouldProcessClipboardKeyEvent(event, terminal, isMac);
+        if (!shouldProcess && this.isCopyShortcut(event, isMac)) {
+            // Suppress native/keypress fall-through when Ctrl+C means copy.
+            event.preventDefault?.();
+            event.stopPropagation?.();
+            if (terminal.hasSelection()) {
+                this.copySelectionToClipboard(terminal).catch(() => {
+                    window.showNotification?.('Clipboard access denied', 'error');
+                });
+            }
         }
         return shouldProcess;
     },
@@ -529,6 +523,67 @@ const TerminalManager = {
         window.SessionDirectorySync?.endReplay(sessionId);
     },
 
+    setupMouseClipboard(terminal, container) {
+        let selecting = false;
+        const canRead = () => typeof navigator.clipboard?.readText === 'function';
+        const onMouseDown = event => {
+            if (event.button === 0) selecting = true;
+            if (event.button === 2 && !event.shiftKey && canRead()) {
+                // Keep the right click out of tmux/Vim mouse reporting.
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        };
+        const onRightMouseUp = event => {
+            if (event.button === 2 && !event.shiftKey && canRead()) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        };
+        const onMouseUp = event => {
+            if (event.button !== 0 || !selecting) return;
+            selecting = false;
+            this.copySelectionToClipboard(terminal).catch(() => {
+                window.showNotification?.('Clipboard access denied', 'error');
+            });
+        };
+        const onContextMenu = event => {
+            // Shift+right click and unavailable Clipboard API retain the native menu.
+            if (event.shiftKey || event.button !== 2 || !canRead()) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            terminal.focus();
+            let contents;
+            try {
+                contents = navigator.clipboard.readText();
+            } catch {
+                window.showNotification?.('Clipboard access denied; use Ctrl+V or Shift+right click', 'error');
+                return;
+            }
+            Promise.resolve(contents).then(text => {
+                if (typeof text === 'string' && text) {
+                    // Preserve xterm's bracketed paste and newline handling.
+                    terminal.paste(text);
+                }
+            }).catch(() => {
+                window.showNotification?.('Clipboard access denied; use Ctrl+V or Shift+right click', 'error');
+            });
+        };
+        const onBlur = () => { selecting = false; };
+        container.addEventListener('mousedown', onMouseDown, true);
+        container.addEventListener('mouseup', onRightMouseUp, true);
+        container.addEventListener('contextmenu', onContextMenu, true);
+        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('blur', onBlur);
+        return () => {
+            container.removeEventListener('mousedown', onMouseDown, true);
+            container.removeEventListener('mouseup', onRightMouseUp, true);
+            container.removeEventListener('contextmenu', onContextMenu, true);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('blur', onBlur);
+        };
+    },
+
     attachTerminal(sessionId, containerId, terminalKey = null) {
         const key = terminalKey || sessionId;
         const terminal = this.terminals[key];
@@ -552,6 +607,8 @@ const TerminalManager = {
         }
 
         terminal.open(container);
+        this.mouseClipboardDisposers[key]?.();
+        this.mouseClipboardDisposers[key] = this.setupMouseClipboard(terminal, container);
 
         this.compositionDisposers[key]?.();
         this.compositionDisposers[key] = this.setupAndroidCompositionGuard(terminal);
@@ -1380,6 +1437,7 @@ const TerminalManager = {
         (this.terminalWriteCallbacks[terminalKey] || new Set()).forEach(
             callback => callback()
         );
+        this.mouseClipboardDisposers[terminalKey]?.();
         this.scrollbarDisposers[terminalKey]?.();
         this.compositionDisposers[terminalKey]?.();
         this.clipboardDisposers[terminalKey]?.dispose?.();
@@ -1398,6 +1456,7 @@ const TerminalManager = {
         delete this.pendingOutputSizes[terminalKey];
         delete this.compositionDisposers[terminalKey];
         delete this.clipboardDisposers[terminalKey];
+        delete this.mouseClipboardDisposers[terminalKey];
         delete this.terminalWriteCallbacks[terminalKey];
         delete this.osc52ClipboardAllowed[terminalKey];
         delete this.directorySyncReplayDepths[terminalKey];
