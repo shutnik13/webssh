@@ -40,8 +40,8 @@ mouse copying behave differently depending on which application owned the mouse.
 A trusted drag or double/triple click in a mouse-tracked terminal now permits
 one copy response for that same focused terminal, within five seconds and
 while browser user activation remains available. Local xterm selection keeps
-its existing immediate copy behavior. No additional confirmation is needed
-for the matching tmux response.
+its existing immediate copy behavior. With “Always confirm remote copying” disabled in Settings → Preferences, no
+additional confirmation is needed for the matching tmux response.
 
 The permission is consumed once and canceled when focus leaves the terminal,
 the browser loses focus or handlers are disposed. Unsolicited, stale,
@@ -60,3 +60,26 @@ The browser test uses actual Chromium/Firefox clipboard writes and native
 Ctrl+V to check clipboard contents. It covers repeated remote selections,
 a delayed OSC 52 response, local Shift selection, double click, focus changes
 and unsolicited/scripted requests. No clipboard permissions are bypassed.
+
+## Account preference
+
+Settings → Preferences → **Always confirm remote copying** is enabled by
+default for both new and existing accounts. It requires the visible Copy action
+for every live tmux OSC 52 response, including mouse selections. Local xterm
+selection and keyboard shortcuts are unaffected.
+
+Disabling it opens a risk confirmation: the remote server supplies the copied
+text and could substitute content, including malicious commands, for what was
+selected. Cancel leaves the setting enabled. The preference API requires
+`accept_remote_clipboard_risk: true` alongside `confirm_remote_clipboard: false`;
+the acknowledgement is not stored as a separate preference. Enabling requires
+no acknowledgement. Choices are saved per account and apply when opening or
+reloading the workspace. No browser clipboard permissions are changed.
+
+Even when disabled, unrelated remote clipboard requests still require a Copy
+click. The focused-terminal, trusted-gesture, expiry and one-response limits
+above continue to apply.
+
+```sh
+node tests/clipboard-preference.cjs
+```

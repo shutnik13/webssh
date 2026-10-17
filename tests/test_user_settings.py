@@ -63,6 +63,7 @@ def test_legacy_user_without_close_preference_keeps_confirmation_enabled(app):
 
         settings = user_settings.get_user_settings(user.id)
 
+        assert settings['confirm_remote_clipboard'] is True
         assert settings['confirm_session_close'] is True
         assert settings['disconnect_session_action'] == 'retry'
 
@@ -222,3 +223,15 @@ def test_disconnect_session_action_socket_event_rejects_malformed_values(
         'success': False,
         'error': 'Invalid disconnect session action',
     }
+
+
+@pytest.mark.parametrize('value', [False, True])
+def test_remote_clipboard_confirmation_accepts_booleans(value):
+    from app import user_settings
+    assert user_settings._valid_settings_update({'confirm_remote_clipboard': value}) is True
+
+
+@pytest.mark.parametrize('value', [None, 0, 1, 'false', [], {}])
+def test_remote_clipboard_confirmation_rejects_non_booleans(value):
+    from app import user_settings
+    assert user_settings._valid_settings_update({'confirm_remote_clipboard': value}) is False

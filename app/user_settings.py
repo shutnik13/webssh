@@ -13,6 +13,7 @@ DEFAULT_SETTINGS = {
     'terminal_appearance': {},
     'notepad': '',
     'confirm_session_close': False,
+    'confirm_remote_clipboard': True,
     'sync_terminal_directory': True,
     'disconnect_session_action': 'retry',
     'authentication_session_duration_minutes': (
@@ -49,6 +50,9 @@ def _valid_settings(value):
         'confirm_session_close' in value
         and not isinstance(value['confirm_session_close'], bool)
     ):
+        return False
+    if ('confirm_remote_clipboard' in value
+            and not isinstance(value['confirm_remote_clipboard'], bool)):
         return False
     if (
         'disconnect_session_action' in value
@@ -92,6 +96,10 @@ def _valid_settings_update(value):
         and (
             'confirm_session_close' not in value
             or isinstance(value['confirm_session_close'], bool)
+        )
+        and (
+            'confirm_remote_clipboard' not in value
+            or isinstance(value['confirm_remote_clipboard'], bool)
         )
         and (
             'disconnect_session_action' not in value
