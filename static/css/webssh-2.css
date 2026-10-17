@@ -619,6 +619,23 @@ textarea:hover {
     border-color: var(--ws2-border);
 }
 
+/* Equal, theme-aware actions in the clipboard risk dialog. */
+#clipboardRiskModal .modal-footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--ws2-border);
+}
+
+#clipboardRiskModal .modal-footer .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 /* Admin and Security centers */
 body:has(.admin-main) {
     overflow: hidden;
