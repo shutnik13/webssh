@@ -29,3 +29,34 @@ node tests/mouse-clipboard.cjs
 The keyboard regression covers Chromium and Firefox. The mouse regression
 uses Chromium's system clipboard and the complete `attachTerminal` lifecycle.
 Set `PLAYWRIGHT_MODULE` when Playwright is installed outside the repository.
+
+## Copying selections inside tmux
+
+`fix/selection-clipboard` handles tmux's OSC 52 copy response after a real
+mouse selection. Previously every tmux response displayed WebSSH's Copy
+confirmation, while xterm's local selection copied immediately. This made
+mouse copying behave differently depending on which application owned the mouse.
+
+A trusted drag or double/triple click in a mouse-tracked terminal now permits
+one copy response for that same focused terminal, within five seconds and
+while browser user activation remains available. Local xterm selection keeps
+its existing immediate copy behavior. No additional confirmation is needed
+for the matching tmux response.
+
+The permission is consumed once and canceled when focus leaves the terminal,
+the browser loses focus or handlers are disposed. Unsolicited, stale,
+background and scripted requests retain the existing approval prompt. If the
+browser rejects an automatic write, a clickable Copy prompt remains available.
+A new deliberate selection supersedes an older pending prompt.
+
+Additional validation:
+
+```sh
+node --test tests/js/terminal-clipboard-gesture.test.js
+node tests/selection-clipboard.cjs
+```
+
+The browser test uses actual Chromium/Firefox clipboard writes and native
+Ctrl+V to check clipboard contents. It covers repeated remote selections,
+a delayed OSC 52 response, local Shift selection, double click, focus changes
+and unsolicited/scripted requests. No clipboard permissions are bypassed.
