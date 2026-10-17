@@ -68,9 +68,11 @@ default for both new and existing accounts. It requires the visible Copy action
 for every live tmux OSC 52 response, including mouse selections. Local xterm
 selection and keyboard shortcuts are unaffected.
 
-Disabling it opens a risk confirmation: the remote server supplies the copied
+Disabling it opens a themed WebSSH dialog (following the current site theme): the remote server supplies the copied
 text and could substitute content, including malicious commands, for what was
-selected. Cancel leaves the setting enabled. The preference API requires
+selected. The explicit “Accept risk and disable” action accepts the risk. Cancel, Escape,
+the close button and clicking outside leave the setting enabled. Keyboard focus
+stays within the dialog and returns to the preference switch when it closes. The preference API requires
 `accept_remote_clipboard_risk: true` alongside `confirm_remote_clipboard: false`;
 the acknowledgement is not stored as a separate preference. Enabling requires
 no acknowledgement. Choices are saved per account and apply when opening or

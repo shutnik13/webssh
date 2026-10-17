@@ -401,6 +401,21 @@
         {% endif %}
         </div>
     </main>
+    <div class="modal modal-small" id="clipboardRiskModal" role="dialog" aria-modal="true" aria-labelledby="clipboardRiskTitle" aria-describedby="clipboardRiskHint" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="clipboardRiskTitle" data-i18n="settings.remoteClipboardRiskTitle">Disable copy confirmations?</h2>
+                <button type="button" class="close material-icons" id="clipboardRiskClose" aria-label="Close" data-i18n-aria-label="common.close">close</button>
+            </div>
+            <div class="modal-body">
+                <p class="admin-muted" id="clipboardRiskHint" data-i18n="settings.remoteClipboardRisk">Without confirmation, a remote server can replace your clipboard after a mouse selection with text different from what you selected, including malicious commands. I understand and accept this risk. Disable confirmations for mouse selections?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="clipboardRiskCancel" data-i18n="common.cancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="clipboardRiskAccept" data-i18n="settings.remoteClipboardRiskAccept">Accept risk and disable</button>
+            </div>
+        </div>
+    </div>
     <div class="modal modal-small" id="securityConfirmationModal" role="dialog" aria-modal="true" aria-labelledby="securityConfirmationTitle" aria-describedby="securityConfirmationHint" aria-hidden="true">
         <div class="modal-content">
             <form id="securityConfirmationForm">
