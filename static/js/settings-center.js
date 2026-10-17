@@ -250,6 +250,51 @@
         });
     }
 
+    function requestClipboardRiskAcceptance() {
+        const modal = document.getElementById('clipboardRiskModal');
+        const cancel = document.getElementById('clipboardRiskCancel');
+        const close = document.getElementById('clipboardRiskClose');
+        const accept = document.getElementById('clipboardRiskAccept');
+        // Missing dialog markup must never bypass acceptance.
+        if (!modal || !cancel || !close || !accept) { return Promise.resolve(false); }
+        return new Promise(resolve => {
+            const finish = accepted => {
+                modal.classList.remove('show');
+                modal.setAttribute('aria-hidden', 'true');
+                cancel.removeEventListener('click', dismiss);
+                close.removeEventListener('click', dismiss);
+                accept.removeEventListener('click', approve);
+                modal.removeEventListener('click', backdrop);
+                document.removeEventListener('keydown', keyboard, true);
+                resolve(accepted);
+            };
+            const dismiss = () => finish(false);
+            const approve = () => finish(true);
+            const backdrop = event => { if (event.target === modal) dismiss(); };
+            const keyboard = event => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    dismiss();
+                } else if (event.key === 'Tab') {
+                    const buttons = [close, cancel, accept];
+                    const index = buttons.indexOf(document.activeElement);
+                    const next = event.shiftKey ? (index <= 0 ? 2 : index - 1) : (index + 1) % 3;
+                    event.preventDefault();
+                    buttons[next].focus();
+                }
+            };
+            cancel.addEventListener('click', dismiss);
+            close.addEventListener('click', dismiss);
+            accept.addEventListener('click', approve);
+            modal.addEventListener('click', backdrop);
+            document.addEventListener('keydown', keyboard, true);
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            cancel.focus();
+        });
+    }
+
     function initRemoteClipboardConfirmation() {
         const input = document.getElementById('confirmRemoteClipboardInput');
         if (!input) { return; }
@@ -258,18 +303,17 @@
             const previous = document.body.dataset.confirmRemoteClipboard !== 'false';
             const requested = input.checked;
             const payload = {confirm_remote_clipboard: requested};
+            input.disabled = true;
             if (!requested) {
-                const accepted = window.confirm(t(
-                    'settings.remoteClipboardRisk',
-                    'Without confirmation, a remote server can replace your clipboard after a mouse selection with text different from what you selected, including malicious commands. I understand and accept this risk. Disable confirmations for mouse selections?'
-                ));
+                const accepted = await requestClipboardRiskAcceptance();
                 if (!accepted) {
                     input.checked = previous;
+                    input.disabled = false;
+                    input.focus();
                     return;
                 }
                 payload.accept_remote_clipboard_risk = true;
             }
-            input.disabled = true;
             setPreferenceStatus(t('settings.saving', 'Saving setting…'));
             try {
                 await savePreference(payload);
@@ -280,6 +324,7 @@
                 setPreferenceStatus(error.message, true);
             } finally {
                 input.disabled = false;
+                input.focus();
             }
         });
     }
