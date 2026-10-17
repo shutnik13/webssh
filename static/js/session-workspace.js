@@ -241,7 +241,7 @@
             update(next) {
                 const previousSessionId = sessionId;
                 const wasConnected = previousConnected;
-                layout = [1, 2, 4].includes(next?.layout) ? next.layout : 1;
+                layout = [1, 2, 3, 4].includes(next?.layout) ? next.layout : 1;
                 sessionId = typeof next?.sessionId === 'string' && next.sessionId
                     ? next.sessionId
                     : null;

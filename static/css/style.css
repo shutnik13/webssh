@@ -1646,6 +1646,15 @@ body.broadcast-active .terminal-wrapper:not(.unassigned) {
     grid-template-rows: 1fr;
 }
 
+.terminal-grid.split-3 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.terminal-grid.split-3 > .terminal-pane:first-child {
+    grid-row: 1 / 3;
+}
+
 .terminal-grid.split-4 {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
@@ -3418,12 +3427,18 @@ button:focus-visible,
     }
 
     .terminal-grid.split-2,
+    .terminal-grid.split-3,
     .terminal-grid.split-4 {
         grid-template-columns: 1fr !important;
         grid-template-rows: 1fr !important;
     }
 
+    .terminal-grid.split-3 > .terminal-pane:first-child {
+        grid-row: auto;
+    }
+
     .terminal-grid.split-2 .terminal-pane:not(:first-child),
+    .terminal-grid.split-3 .terminal-pane:not(:first-child),
     .terminal-grid.split-4 .terminal-pane:not(:first-child) {
         display: none;
     }

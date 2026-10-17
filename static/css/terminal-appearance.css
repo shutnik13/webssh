@@ -11,8 +11,10 @@
 }
 body[data-theme] .terminal-grid > .terminal-pane { background-image: none; }
 .terminal-pane .xterm, .terminal-pane .xterm-viewport { background: transparent !important; }
+.terminal-grid.split-3 > .terminal-pane:not(:first-child),
 .terminal-grid.split-2 > .terminal-pane + .terminal-pane,
 .terminal-grid.split-4 > .terminal-pane:nth-child(even) { border-left: 1px solid var(--ws2-border); }
+.terminal-grid.split-3 > .terminal-pane:nth-child(3),
 .terminal-grid.split-4 > .terminal-pane:nth-child(n+3) { border-top: 1px solid var(--ws2-border); }
 .terminal-grid:not(.split-1) > .terminal-pane.active { box-shadow: inset 0 2px var(--ws2-accent); }
 .workspace .context-workspace { border: 1px solid var(--ws2-border); border-radius: 6px; box-shadow: none; background: var(--ws2-surface); }
