@@ -619,6 +619,24 @@ textarea:hover {
     border-color: var(--ws2-border);
 }
 
+#clipboardRiskModal .modal-header {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+}
+
+#clipboardRiskTitle {
+    grid-column: 2;
+    text-align: center;
+}
+
+#clipboardRiskClose {
+    grid-column: 3;
+}
+
+#clipboardRiskHint {
+    text-align: justify;
+}
+
 /* Equal, theme-aware actions in the clipboard risk dialog. */
 #clipboardRiskModal .modal-footer {
     display: grid;
