@@ -879,7 +879,11 @@ test('attachTerminal replays output received before and during terminal attachme
 
         TerminalManager.terminals.switchTerminal = terminal;
         TerminalManager.sessionTerminals['switch-session'] = ['switchTerminal'];
-        global.document.getElementById = () => ({ appendChild() {} });
+        global.document.getElementById = () => ({
+            appendChild() {},
+            addEventListener() {},
+            removeEventListener() {},
+        });
         global.requestAnimationFrame = callback => callback();
         TerminalManager.setupScrollbar = () => {};
         TerminalManager.fitTerminal = () => {};
@@ -953,7 +957,11 @@ test('attachTerminal replays the current bounded transcript after pending trims'
         TerminalManager.sessionTerminals['bounded-session'] = [
             'boundedTerminal'
         ];
-        global.document.getElementById = () => ({ appendChild() {} });
+        global.document.getElementById = () => ({
+            appendChild() {},
+            addEventListener() {},
+            removeEventListener() {},
+        });
         global.requestAnimationFrame = callback => callback();
         TerminalManager.setupScrollbar = () => {};
         TerminalManager.fitTerminal = () => {};
