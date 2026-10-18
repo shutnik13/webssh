@@ -18,7 +18,15 @@ const root = path.resolve(__dirname, '..');
                 window.manager = TerminalManager;
                 window.prompts = []; window.writes = []; window.remoteText = 'REMOTE_SELECTION_ONE';
                 window.responseDelay = 100; window.respond = true;
-                window.showNotification = notice => {prompts.push(notice); return () => notice.onDismiss?.();};
+                window.showNotification = notice => {
+                    if (!notice?.action) return () => {};
+                    prompts.push(notice);
+                    const button = document.createElement('button');
+                    button.id = 'approve-copy'; button.textContent = 'Copy';
+                    button.onclick = () => {notice.action?.onClick(); button.remove(); notice.onDismiss?.();};
+                    document.body.append(button);
+                    return () => {button.remove(); notice.onDismiss?.();};
+                };
                 const write = navigator.clipboard.writeText.bind(navigator.clipboard);
                 Object.defineProperty(navigator.clipboard, 'writeText', {configurable:true, value: text => {
                     writes.push(text);
@@ -73,57 +81,36 @@ const root = path.resolve(__dirname, '..');
             await page.waitForFunction(() => writes.length === 3);
             assert.equal(await clipboard(), 'COPY_ME');
             assert.equal(await page.evaluate(() => prompts.length), 0);
-            // A remote request unrelated to selection still requires approval.
-            await page.evaluate(() => sendCopy('UNREQUESTED'));
-            assert.equal(await page.evaluate(() => writes.length), 3);
-            assert.equal(await page.evaluate(() => prompts.length), 1);
-            // Another deliberate selection works without accepting the old prompt.
-            await page.evaluate(() => {remoteText = 'REMOTE_SELECTION_THREE';});
-            await drag(false);
+            // Off means automatic live tmux writes even without a selection.
+            await page.evaluate(() => sendCopy('WITHOUT_SELECTION'));
             await page.waitForFunction(() => writes.length === 4);
-            assert.equal(await clipboard(), 'REMOTE_SELECTION_THREE');
-            assert.equal(await page.evaluate(() => prompts.length), 1);
-            // tmux also supports selecting a word/line with repeated clicks.
-            await page.evaluate(() => {respond = false;});
-            await page.locator('.xterm-screen').dblclick({position:{x:20,y:10}});
-            await page.evaluate(() => sendCopy('REMOTE_DOUBLE_CLICK'));
-            await page.waitForFunction(() => writes.length === 5);
-            assert.equal(await clipboard(), 'REMOTE_DOUBLE_CLICK');
-            assert.equal(await page.evaluate(() => prompts.length), 1);
-            // Focus changes cancel authorization before the network reply arrives.
-            await page.evaluate(() => {respond = true; remoteText = 'AFTER_FOCUS_CHANGE'; responseDelay = 500;});
-            await drag(false);
-            await page.locator('#probe').focus();
-            await page.waitForFunction(() => prompts.length === 2);
-            assert.equal(await page.evaluate(() => writes.length), 5);
-            // Scripted mouse events cannot authorize remote clipboard writes.
-            await page.evaluate(async () => {
-                respond = false; term.focus();
-                const el = document.querySelector('#term');
-                el.dispatchEvent(new MouseEvent('mousedown', {button:0, clientX:30, clientY:30, bubbles:true}));
-                window.dispatchEvent(new MouseEvent('mouseup', {button:0, clientX:90, clientY:30, bubbles:true}));
-                await sendCopy('SCRIPTED');
-            });
-            assert.equal(await page.evaluate(() => writes.length), 5);
-            // The same terminal must honor preference updates without page reload.
+            assert.equal(await clipboard(), 'WITHOUT_SELECTION');
+            assert.equal(await page.evaluate(() => prompts.length), 0);
+            // Turning confirmation on affects this same terminal immediately.
             await page.evaluate(() => {
                 manager.setRemoteClipboardConfirmation(true);
-                respond = true; responseDelay = 100; remoteText = 'STRICT_LIVE';
+                remoteText = 'STRICT_SELECTION';
             });
-            const promptCount = await page.evaluate(() => prompts.length);
-            // Clear the previous pending prompt so the next request is observable.
-            await page.evaluate(() => {prompts[prompts.length - 1].onDismiss?.();});
             await drag(false);
-            await page.waitForFunction(count => prompts.length > count, promptCount);
+            await page.waitForFunction(() => prompts.length === 1);
+            assert.equal(await page.evaluate(() => writes.length), 4);
+            await page.locator('#approve-copy').click();
+            await page.waitForFunction(() => writes.length === 5);
+            assert.equal(await clipboard(), 'STRICT_SELECTION');
+            // On also requires approval for a request unrelated to selection.
+            await page.evaluate(() => sendCopy('STRICT_REMOTE'));
+            await page.waitForFunction(() => prompts.length === 2);
             assert.equal(await page.evaluate(() => writes.length), 5);
+            // Turning it off dismisses the pending prompt on the next write.
             await page.evaluate(() => {
                 manager.setRemoteClipboardConfirmation(false);
-                remoteText = 'SMART_LIVE';
+                remoteText = 'AUTOMATIC_AGAIN';
             });
             await drag(false);
             await page.waitForFunction(() => writes.length === 6);
-            assert.equal(await clipboard(), 'SMART_LIVE');
-            console.log(`PASS ${name}: real clipboard copy from repeated tmux selections without prompts; local Shift selection; unsolicited, focus-changed and scripted requests require approval`);
+            assert.equal(await clipboard(), 'AUTOMATIC_AGAIN');
+            assert.equal(await page.locator('#approve-copy').count(), 0);
+            console.log(`PASS ${name}: automatic tmux writes with and without selection; local Shift selection; enabling requires Copy; disabling applies without reload`);
         } finally {
             await browser.close();
         }

@@ -84,7 +84,7 @@ Instead, report vulnerabilities via:
 | Connection Isolation | Session ownership verified on every operation |
 | Credential Handling | Cleared from memory after use |
 | Stored-key work | Connection attempt rate limiting precedes stored-key PBKDF2/decryption; encrypted key stores have atomic count and byte growth limits |
-| Remote clipboard | Persistent-tmux OSC 52 requests require explicit confirmation by default. Users may accept the risk in Preferences to allow one response after a trusted selection in the focused terminal; replayed and plain-SSH output cannot write the clipboard |
+| Remote clipboard | Persistent-tmux OSC 52 requests require explicit confirmation by default. Users may accept the risk in Preferences to allow automatic live tmux clipboard writes, including unsolicited requests; replayed and plain-SSH output cannot write the clipboard |
 | Live output | Per-browser ACK accounting with per-socket, per-user, and global bounds applies SSH backpressure; a stalled browser is disconnected without closing its SSH/tmux session |
 
 ## Security Best Practices for Deployment

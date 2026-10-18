@@ -125,7 +125,7 @@
                     <label class="admin-switch"><input type="checkbox" id="confirmSessionCloseInput"><span data-i18n="common.enabled">Enabled</span></label>
                 </div>
                 <div class="admin-settings-row">
-                    <div><strong id="confirmRemoteClipboardLabel" data-i18n="settings.confirmRemoteClipboard">Always confirm remote copying</strong><p id="confirmRemoteClipboardHint" class="admin-muted" data-i18n="settings.confirmRemoteClipboardHint">When enabled, copying from tmux requires a Copy click. When off, mouse selections copy immediately; other remote requests still ask. Applies immediately to connected workspaces.</p></div>
+                    <div><strong id="confirmRemoteClipboardLabel" data-i18n="settings.confirmRemoteClipboard">Always confirm remote copying</strong><p id="confirmRemoteClipboardHint" class="admin-muted" data-i18n="settings.confirmRemoteClipboardHint">When enabled, each live tmux clipboard request requires a Copy click. When off, requests copy automatically, subject to browser permissions. Applies immediately to connected workspaces.</p></div>
                     <label class="admin-switch"><input type="checkbox" id="confirmRemoteClipboardInput" aria-labelledby="confirmRemoteClipboardLabel" aria-describedby="confirmRemoteClipboardHint"><span data-i18n="common.enabled">Enabled</span></label>
                 </div>
                 <div class="admin-settings-row">
@@ -401,21 +401,21 @@
         {% endif %}
         </div>
     </main>
-    <div class="modal modal-small" id="clipboardRiskModal" role="dialog" aria-modal="true" aria-labelledby="clipboardRiskTitle" aria-describedby="clipboardRiskHint" aria-hidden="true">
-        <div class="modal-content">
+    <dialog class="modal-small" id="clipboardRiskModal" aria-labelledby="clipboardRiskTitle" aria-describedby="clipboardRiskHint" aria-hidden="true">
+        <form method="dialog" class="modal-content">
             <div class="modal-header">
                 <h2 id="clipboardRiskTitle" data-i18n="settings.remoteClipboardRiskTitle">Disable copy confirmations?</h2>
-                <button type="button" class="close material-icons" id="clipboardRiskClose" aria-label="Close" data-i18n-aria-label="common.close">close</button>
+                <button type="submit" value="cancel" class="close material-icons" id="clipboardRiskClose" aria-label="Close" data-i18n-aria-label="common.close">close</button>
             </div>
             <div class="modal-body">
-                <p class="admin-muted" id="clipboardRiskHint" data-i18n="settings.remoteClipboardRisk">Without confirmation, a remote server can replace your clipboard after a mouse selection with text different from what you selected, including malicious commands. I understand and accept this risk. Disable confirmations for mouse selections?</p>
+                <p class="admin-muted" id="clipboardRiskHint" data-i18n="settings.remoteClipboardRisk">Without confirmation, a remote tmux session can replace your clipboard at any time, including with malicious commands or text different from what you selected. Disable confirmations and accept this risk?</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="clipboardRiskCancel" data-i18n="common.cancel">Cancel</button>
-                <button type="button" class="btn btn-danger" id="clipboardRiskAccept" data-i18n="settings.remoteClipboardRiskAccept">Accept risk and disable</button>
+                <button type="submit" value="cancel" class="btn btn-primary" id="clipboardRiskCancel" data-i18n="common.cancel">Cancel</button>
+                <button type="submit" value="accept" class="btn btn-danger" id="clipboardRiskAccept" data-i18n="settings.remoteClipboardRiskAccept">Accept risk and disable</button>
             </div>
-        </div>
-    </div>
+        </form>
+    </dialog>
     <div class="modal modal-small" id="securityConfirmationModal" role="dialog" aria-modal="true" aria-labelledby="securityConfirmationTitle" aria-describedby="securityConfirmationHint" aria-hidden="true">
         <div class="modal-content">
             <form id="securityConfirmationForm">

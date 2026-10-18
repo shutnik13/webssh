@@ -252,46 +252,26 @@
 
     function requestClipboardRiskAcceptance() {
         const modal = document.getElementById('clipboardRiskModal');
-        const cancel = document.getElementById('clipboardRiskCancel');
-        const close = document.getElementById('clipboardRiskClose');
-        const accept = document.getElementById('clipboardRiskAccept');
-        // Missing dialog markup must never bypass acceptance.
-        if (!modal || !cancel || !close || !accept) { return Promise.resolve(false); }
+        if (!modal?.showModal) { return Promise.resolve(false); }
         return new Promise(resolve => {
-            const finish = accepted => {
-                modal.classList.remove('show');
-                modal.setAttribute('aria-hidden', 'true');
-                cancel.removeEventListener('click', dismiss);
-                close.removeEventListener('click', dismiss);
-                accept.removeEventListener('click', approve);
-                modal.removeEventListener('click', backdrop);
-                document.removeEventListener('keydown', keyboard, true);
-                resolve(accepted);
-            };
-            const dismiss = () => finish(false);
-            const approve = () => finish(true);
-            const backdrop = event => { if (event.target === modal) dismiss(); };
-            const keyboard = event => {
-                if (event.key === 'Escape') {
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                    dismiss();
-                } else if (event.key === 'Tab') {
-                    const buttons = [close, cancel, accept];
-                    const index = buttons.indexOf(document.activeElement);
-                    const next = event.shiftKey ? (index <= 0 ? 2 : index - 1) : (index + 1) % 3;
-                    event.preventDefault();
-                    buttons[next].focus();
+            const backdrop = event => {
+                if (event.target !== modal) return;
+                const rect = modal.getBoundingClientRect();
+                if (event.clientX < rect.left || event.clientX > rect.right
+                    || event.clientY < rect.top || event.clientY > rect.bottom) {
+                    modal.close('cancel');
                 }
             };
-            cancel.addEventListener('click', dismiss);
-            close.addEventListener('click', dismiss);
-            accept.addEventListener('click', approve);
-            modal.addEventListener('click', backdrop);
-            document.addEventListener('keydown', keyboard, true);
-            modal.classList.add('show');
+            modal.addEventListener('close', () => {
+                modal.setAttribute('aria-hidden', 'true');
+                modal.removeEventListener('click', backdrop);
+                resolve(modal.returnValue === 'accept');
+            }, {once: true});
+            modal.returnValue = 'cancel';
             modal.setAttribute('aria-hidden', 'false');
-            cancel.focus();
+            modal.addEventListener('click', backdrop);
+            modal.showModal();
+            document.getElementById('clipboardRiskCancel').focus();
         });
     }
 
