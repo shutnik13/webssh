@@ -4,7 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const root = path.resolve(__dirname, '..');
 const template = fs.readFileSync(path.join(root, 'templates/security.html'), 'utf8');
-const dialog = template.slice(template.indexOf('    <div class="modal modal-small" id="clipboardRiskModal"'), template.indexOf('    <div class="modal modal-small" id="securityConfirmationModal"'));
+const dialog = template.slice(template.indexOf('    <dialog class="modal-small" id="clipboardRiskModal"'), template.indexOf('    <div class="modal modal-small" id="securityConfirmationModal"'));
 (async () => {
     for (const [name, engine] of [['Chromium', chromium], ['Firefox', firefox]]) {
         const browser = await engine.launch({headless:true});
@@ -51,18 +51,21 @@ const dialog = template.slice(template.indexOf('    <div class="modal modal-smal
                 assert.equal(colors.actual, colors.expected, theme);
                 await page.keyboard.press('Tab');
                 assert.equal(await page.locator('#clipboardRiskAccept').evaluate(el => el === document.activeElement), true);
-                await page.keyboard.press('Tab');
+                await page.keyboard.press('Shift+Tab');
+                await page.keyboard.press('Shift+Tab');
                 assert.equal(await page.locator('#clipboardRiskClose').evaluate(el => el === document.activeElement), true);
                 await page.keyboard.press('Escape');
                 await modal.waitFor({state:'hidden'});
+                await page.waitForFunction(() => document.getElementById('confirmRemoteClipboardInput').checked && !document.getElementById('confirmRemoteClipboardInput').disabled);
                 assert.equal(await input.isChecked(), true);
                 assert.equal(await input.evaluate(el => el === document.activeElement), true);
             }
             for (const selector of ['#clipboardRiskCancel', '#clipboardRiskClose', '#clipboardRiskModal']) {
                 await input.click();
-                if (selector === '#clipboardRiskModal') await modal.click({position:{x:2,y:2}});
+                if (selector === '#clipboardRiskModal') await page.mouse.click(2, 2);
                 else await page.locator(selector).click();
                 await modal.waitFor({state:'hidden'});
+                await page.waitForFunction(() => document.getElementById('confirmRemoteClipboardInput').checked && !document.getElementById('confirmRemoteClipboardInput').disabled);
                 assert.equal(await input.isChecked(), true);
             }
             assert.equal(requests.length, 0);

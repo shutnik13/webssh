@@ -21,7 +21,6 @@ const TerminalManager = {
     compositionDisposers: {},
     clipboardDisposers: {},
     mouseClipboardDisposers: {},
-    remoteClipboardGestures: new WeakMap(),
     terminalWriteCallbacks: {},
     osc52ClipboardAllowed: {},
     directorySyncReplayDepths: {},
@@ -259,12 +258,11 @@ const TerminalManager = {
             const text = this.decodeOsc52Clipboard(data);
             if (text === null) return true;
             const revision = ++requestRevision;
-            if (this.consumeRemoteClipboardGesture(terminal)) {
+            if (document.body?.dataset?.confirmRemoteClipboard === 'false') {
                 pendingRequest = null;
                 dismissPending?.();
                 dismissPending = null;
-                // A mouse selection already expresses the user's copy action.
-                // Invoke writeText immediately while browser activation is live.
+                // The user explicitly allowed automatic live tmux clipboard writes.
                 try {
                     Promise.resolve(this.writeTextToClipboard(text)).then(() => {
                         failureReported = false;
@@ -293,17 +291,6 @@ const TerminalManager = {
     setRemoteClipboardConfirmation(value) {
         if (typeof value !== 'boolean') return;
         document.body.dataset.confirmRemoteClipboard = String(value);
-        // A gesture from before the preference change cannot authorize a write.
-        this.remoteClipboardGestures = new WeakMap();
-    },
-
-    consumeRemoteClipboardGesture(terminal) {
-        const expires = this.remoteClipboardGestures.get(terminal);
-        this.remoteClipboardGestures.delete(terminal);
-        if (document.body?.dataset.confirmRemoteClipboard !== 'false') return false;
-        return Boolean(expires && Date.now() <= expires
-            && terminal.element?.contains(document.activeElement)
-            && navigator.userActivation?.isActive !== false);
     },
 
     activateOsc52ClipboardHandler(terminalKey, expectedTerminal) {
@@ -568,17 +555,10 @@ const TerminalManager = {
 
     setupMouseClipboard(terminal, container) {
         let selecting = false;
-        let trustedSelection = false;
-        let selectionStart = null;
-        let selectionClicks = 0;
         const canRead = () => typeof navigator.clipboard?.readText === 'function';
         const onMouseDown = event => {
             if (event.button === 0) {
-                this.remoteClipboardGestures.delete(terminal);
                 selecting = true;
-                trustedSelection = event.isTrusted;
-                selectionStart = {x: event.clientX, y: event.clientY};
-                selectionClicks = event.detail;
             }
             if (event.button === 2 && !event.shiftKey && canRead()) {
                 // Keep the right click out of tmux/Vim mouse reporting.
@@ -595,17 +575,6 @@ const TerminalManager = {
         const onMouseUp = event => {
             if (event.button !== 0 || !selecting) return;
             selecting = false;
-            const dragged = selectionStart && Math.hypot(
-                event.clientX - selectionStart.x, event.clientY - selectionStart.y,
-            ) >= 4;
-            if (!terminal.hasSelection?.() && trustedSelection && event.isTrusted
-                && (dragged || selectionClicks >= 2) && terminal.modes?.mouseTrackingMode !== 'none'
-                && terminal.modes?.mouseTrackingMode) {
-                // One bounded OSC 52 response to this actual remote mouse drag.
-                // Other remote clipboard requests retain their approval prompt.
-                this.remoteClipboardGestures.set(terminal, Date.now() + 5000);
-                return;
-            }
             this.copySelectionToClipboard(terminal).catch(() => {
                 window.showNotification?.('Clipboard access denied', 'error');
             });
@@ -634,7 +603,6 @@ const TerminalManager = {
         };
         const onBlur = () => {
             selecting = false;
-            this.remoteClipboardGestures.delete(terminal);
         };
         container.addEventListener('mousedown', onMouseDown, true);
         container.addEventListener('mouseup', onRightMouseUp, true);
@@ -649,7 +617,6 @@ const TerminalManager = {
             container.removeEventListener('focusout', onBlur);
             window.removeEventListener('mouseup', onMouseUp);
             window.removeEventListener('blur', onBlur);
-            this.remoteClipboardGestures.delete(terminal);
         };
     },
 

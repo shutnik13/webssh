@@ -30,59 +30,45 @@ The keyboard regression covers Chromium and Firefox. The mouse regression
 uses Chromium's system clipboard and the complete `attachTerminal` lifecycle.
 Set `PLAYWRIGHT_MODULE` when Playwright is installed outside the repository.
 
-## Copying selections inside tmux
-
-`fix/selection-clipboard` handles tmux's OSC 52 copy response after a real
-mouse selection. Previously every tmux response displayed WebSSH's Copy
-confirmation, while xterm's local selection copied immediately. This made
-mouse copying behave differently depending on which application owned the mouse.
-
-A trusted drag or double/triple click in a mouse-tracked terminal now permits
-one copy response for that same focused terminal, within five seconds and
-while browser user activation remains available. Local xterm selection keeps
-its existing immediate copy behavior. With “Always confirm remote copying” disabled in Settings → Preferences, no
-additional confirmation is needed for the matching tmux response.
-
-The permission is consumed once and canceled when focus leaves the terminal,
-the browser loses focus or handlers are disposed. Unsolicited, stale,
-background and scripted requests retain the existing approval prompt. If the
-browser rejects an automatic write, a clickable Copy prompt remains available.
-A new deliberate selection supersedes an older pending prompt.
-
-Additional validation:
-
-```sh
-node --test tests/js/terminal-clipboard-gesture.test.js
-node tests/selection-clipboard.cjs
-```
-
-The browser test uses actual Chromium/Firefox clipboard writes and native
-Ctrl+V to check clipboard contents. It covers repeated remote selections,
-a delayed OSC 52 response, local Shift selection, double click, focus changes
-and unsolicited/scripted requests. No clipboard permissions are bypassed.
-
-## Account preference
+## Remote tmux clipboard policy
 
 Settings → Preferences → **Always confirm remote copying** is enabled by
-default for both new and existing accounts. It requires the visible Copy action
-for every live tmux OSC 52 response, including mouse selections. Local xterm
-selection and keyboard shortcuts are unaffected.
+default for both new and existing accounts. There are exactly two modes:
 
-Disabling it opens a themed WebSSH dialog (following the current site theme): the remote server supplies the copied
-text and could substitute content, including malicious commands, for what was
-selected. The explicit “Accept risk and disable” action accepts the risk. Cancel, Escape,
-the close button and clicking outside leave the setting enabled. Keyboard focus
-stays within the dialog and returns to the preference switch when it closes. The preference API requires
-`accept_remote_clipboard_risk: true` alongside `confirm_remote_clipboard: false`;
-the acknowledgement is not stored as a separate preference. Enabling requires
-no acknowledgement. Choices are saved per account and pushed immediately to all connected
-workspaces for that account. Reconnecting also refreshes the saved choice
-before session output is restored. No browser clipboard permissions are changed.
+- Enabled: each live tmux OSC 52 request requires the visible Copy action.
+- Disabled: every valid live tmux OSC 52 request is passed directly to the
+  browser clipboard, even without a selection or focus in that terminal.
 
-Even when disabled, unrelated remote clipboard requests still require a Copy
-click. The focused-terminal, trusted-gesture, expiry and one-response limits
-above continue to apply.
+The disabled mode follows the direct write path used before upstream PR #199.
+It has no gesture tracker, expiry timer or one-response authorization. Browser
+clipboard permissions still apply; a rejected automatic write offers a manual
+Copy action. Local xterm selection, Ctrl+C/V and right-click paste are unchanged.
+
+Disabling requires the themed risk dialog: a remote session can overwrite the
+clipboard at any time, including with malicious commands or text different from
+what was selected. The explicit **Accept risk and disable** action accepts this
+risk. Cancel, Escape, the close button and clicking outside leave the setting
+enabled. A native HTML dialog manages modal focus and Escape; focus returns to
+the preference switch when it closes. Existing theme colors, centered heading,
+justified warning and equal action buttons are preserved.
+
+The API requires `accept_remote_clipboard_risk: true` alongside
+`confirm_remote_clipboard: false`; the acknowledgement is not stored separately.
+Enabling requires no acknowledgement. The saved account preference is pushed
+to connected workspaces and refreshed before output restoration on reconnect.
+
+Both modes retain upstream OSC 52 decoding and the 128 KiB UTF-8 limit. Only live
+persistent-tmux terminals can register the handler. Replay and ordinary SSH
+output cannot write the clipboard. Invalid requests are ignored; disposal and
+request revisions prevent stale asynchronous failures reopening old prompts.
 
 ```sh
+node --test tests/js/terminal-clipboard-policy.test.js
+node tests/selection-clipboard.cjs
 node tests/clipboard-preference.cjs
 ```
+
+Chromium/Firefox regressions check actual clipboard contents via native Ctrl+V,
+repeated remote selections, requests without selection, local Shift selection,
+and live preference changes. The settings regression covers all 10 themes,
+keyboard navigation, every cancellation path, acceptance, reload and save errors.
