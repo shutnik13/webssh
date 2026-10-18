@@ -730,3 +730,39 @@ def test_admin_status_retains_ssh_session_after_browser_disconnect_and_restore(a
         assert session_event['buffered_output'] == 'preserved output'
     finally:
         restored.disconnect()
+
+
+def test_clipboard_preference_updates_only_own_workspaces_and_refreshes_on_reconnect(app):
+    own, _ = _authenticated_socket(app, 'clipboard_live_owner')
+    other, _ = _authenticated_socket(app, 'clipboard_live_other')
+    http = _logged_in_http_client(app, 'clipboard_live_owner')
+    reconnected = None
+    try:
+        response = http.post('/api/account/preferences', json={
+            'confirm_remote_clipboard': False,
+            'accept_remote_clipboard_risk': True,
+        })
+        assert response.status_code == 200
+        own_events = [e for e in own.get_received() if e['name'] == 'clipboard_confirmation_preference']
+        assert [e['args'][0] for e in own_events] == [{'confirm_remote_clipboard': False}]
+        assert not [e for e in other.get_received() if e['name'] == 'clipboard_confirmation_preference']
+
+        assert http.post('/api/account/preferences', json={
+            'confirm_remote_clipboard': True,
+        }).status_code == 200
+        assert [e['args'][0] for e in own.get_received()
+                if e['name'] == 'clipboard_confirmation_preference'] == [{'confirm_remote_clipboard': True}]
+        assert http.post('/api/account/preferences', json={
+            'confirm_remote_clipboard': False,
+        }).status_code == 400
+        assert not [e for e in own.get_received() if e['name'] == 'clipboard_confirmation_preference']
+
+        own.disconnect()
+        reconnected = socketio.test_client(app, flask_test_client=http, auth=_socket_auth())
+        assert reconnected.is_connected()
+        assert [e['args'][0] for e in reconnected.get_received()
+                if e['name'] == 'clipboard_confirmation_preference'] == [{'confirm_remote_clipboard': True}]
+    finally:
+        for socket in (own, other, reconnected):
+            if socket and socket.is_connected():
+                socket.disconnect()

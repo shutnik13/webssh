@@ -127,3 +127,35 @@ for (const value of [undefined, 'unexpected']) {
         f.disposable.dispose();
     });
 }
+
+test('a live preference update takes effect in an existing terminal without reload', async () => {
+    const f = fixture();
+    manager.remoteClipboardGestures.set(f.terminal, Date.now() + 5000);
+    f.receive('before setting change');
+    await flush();
+    assert.deepEqual(f.writes, ['before setting change']);
+    manager.setRemoteClipboardConfirmation(true);
+    manager.remoteClipboardGestures.set(f.terminal, Date.now() + 5000);
+    f.receive('after enabling');
+    assert.equal(f.prompts.length, 1);
+    assert.deepEqual(f.writes, ['before setting change']);
+    manager.setRemoteClipboardConfirmation(false);
+    // Enabling/disabling clears gestures armed under the previous preference.
+    f.receive('without a new gesture');
+    assert.deepEqual(f.writes, ['before setting change']);
+    manager.remoteClipboardGestures.set(f.terminal, Date.now() + 5000);
+    f.receive('after disabling and a fresh selection');
+    await flush();
+    assert.deepEqual(f.writes, ['before setting change', 'after disabling and a fresh selection']);
+    f.disposable.dispose();
+});
+
+test('malformed live updates cannot disable confirmation', () => {
+    const f = fixture();
+    manager.setRemoteClipboardConfirmation(true);
+    for (const value of [undefined, null, 'false', 0, {}, []]) {
+        manager.setRemoteClipboardConfirmation(value);
+        assert.equal(document.body.dataset.confirmRemoteClipboard, 'true');
+    }
+    f.disposable.dispose();
+});
