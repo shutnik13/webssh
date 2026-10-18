@@ -850,6 +850,11 @@ def handle_connect(auth=None):
                 user=user.username,
                 sid=socket_sid,
             )
+            # Refresh before restoring output, including after a missed update.
+            settings = get_user_settings(user.id)
+            emit('clipboard_confirmation_preference', {
+                'confirm_remote_clipboard': settings.get('confirm_remote_clipboard', True),
+            })
             restore_user_sessions(user.id, socket_sid)
             emit('connected', {
                 'status': 'success',

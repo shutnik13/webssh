@@ -290,6 +290,13 @@ const TerminalManager = {
         };
     },
 
+    setRemoteClipboardConfirmation(value) {
+        if (typeof value !== 'boolean') return;
+        document.body.dataset.confirmRemoteClipboard = String(value);
+        // A gesture from before the preference change cannot authorize a write.
+        this.remoteClipboardGestures = new WeakMap();
+    },
+
     consumeRemoteClipboardGesture(terminal) {
         const expires = this.remoteClipboardGestures.get(terminal);
         this.remoteClipboardGestures.delete(terminal);

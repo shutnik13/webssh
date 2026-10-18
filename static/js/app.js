@@ -202,6 +202,10 @@
             persistent: true,
         });
     });
+    socket.on('clipboard_confirmation_preference', data => {
+        TerminalManager.setRemoteClipboardConfirmation(data?.confirm_remote_clipboard);
+    });
+
     socket.on('connect', () => {
         connectionErrorNotice?.();
         connectionErrorNotice = null;

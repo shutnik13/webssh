@@ -75,8 +75,9 @@ the close button and clicking outside leave the setting enabled. Keyboard focus
 stays within the dialog and returns to the preference switch when it closes. The preference API requires
 `accept_remote_clipboard_risk: true` alongside `confirm_remote_clipboard: false`;
 the acknowledgement is not stored as a separate preference. Enabling requires
-no acknowledgement. Choices are saved per account and apply when opening or
-reloading the workspace. No browser clipboard permissions are changed.
+no acknowledgement. Choices are saved per account and pushed immediately to all connected
+workspaces for that account. Reconnecting also refreshes the saved choice
+before session output is restored. No browser clipboard permissions are changed.
 
 Even when disabled, unrelated remote clipboard requests still require a Copy
 click. The focused-terminal, trusted-gesture, expiry and one-response limits

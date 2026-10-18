@@ -105,6 +105,24 @@ const root = path.resolve(__dirname, '..');
                 await sendCopy('SCRIPTED');
             });
             assert.equal(await page.evaluate(() => writes.length), 5);
+            // The same terminal must honor preference updates without page reload.
+            await page.evaluate(() => {
+                manager.setRemoteClipboardConfirmation(true);
+                respond = true; responseDelay = 100; remoteText = 'STRICT_LIVE';
+            });
+            const promptCount = await page.evaluate(() => prompts.length);
+            // Clear the previous pending prompt so the next request is observable.
+            await page.evaluate(() => {prompts[prompts.length - 1].onDismiss?.();});
+            await drag(false);
+            await page.waitForFunction(count => prompts.length > count, promptCount);
+            assert.equal(await page.evaluate(() => writes.length), 5);
+            await page.evaluate(() => {
+                manager.setRemoteClipboardConfirmation(false);
+                remoteText = 'SMART_LIVE';
+            });
+            await drag(false);
+            await page.waitForFunction(() => writes.length === 6);
+            assert.equal(await clipboard(), 'SMART_LIVE');
             console.log(`PASS ${name}: real clipboard copy from repeated tmux selections without prompts; local Shift selection; unsolicited, focus-changed and scripted requests require approval`);
         } finally {
             await browser.close();

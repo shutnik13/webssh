@@ -1321,7 +1321,12 @@ def create_app(
 
         if not save_user_settings(current_user.id, updates):
             return jsonify({'error': 'Failed to save settings'}), 500
-        return jsonify({'settings': get_user_settings(current_user.id)})
+        settings = get_user_settings(current_user.id)
+        if 'confirm_remote_clipboard' in updates:
+            socketio.emit('clipboard_confirmation_preference', {
+                'confirm_remote_clipboard': settings.get('confirm_remote_clipboard', True),
+            }, to=f'user_{current_user.id}')
+        return jsonify({'settings': settings})
 
     from .decorators import admin_required, step_up_required
     from .models import User
